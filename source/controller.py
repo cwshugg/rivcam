@@ -4,9 +4,9 @@ import time;
 from time import sleep;
 from dashcam import DashCam;
 from filer import Filer;
-from dash_in import DashInput;
 from dumper import Dumper;
 from lights import LightManager;
+from buttons import ButtonManager;
 
 # The main runner class for the program. Handles Camera interaction, file
 # saving/deletion, and other input/output
@@ -17,6 +17,7 @@ class Controller:
     #   filer        The Filer object responsible for managing system files
     #   dumper       The Dumper object used to dump files onto a flash drive
     #   lights       The LightManager object used for toggling LEDs
+    #   buttons      The ButtonManager used to sense button presses
     #   mode         An integer representing what "mode" the dash cam is in.
     #                Used to determine what action to take in the main loop.
     #                   0   Passive Record
@@ -33,13 +34,16 @@ class Controller:
         self.camera = DashCam();
         # create a Filer
         self.filer = Filer();
-        # create a filer dumper
+        # create a file dumper
         self.dumper = Dumper("DASHCAM");
         # create a light manager
         self.lights = LightManager();
+        # create a button manager
+        self.buttons = ButtonManager();
+        
         
         # create constants
-        self.TICK_RATE = 0.25;
+        self.TICK_RATE = 0.125;
         self.PASSIVE_LEN = 10.0 * 60;
         
         # by default, the mode is 0: passive record
@@ -80,39 +84,67 @@ class Controller:
         # --------------- main loop --------------- #
         ticks = 0.0;
         tickSeconds = 0.0;
+        tickPrintRate = 1; # logs the tickString every 'tickPrintRate' seconds
         terminate = False;
         while (not terminate):
             tickOnSecond = tickSeconds.is_integer();
             # write a tick string to be printed to the log
             tickString = "Tick: {t1:9.2f}  |  Running Time: {t2:9.2f}";
             tickString = tickString.format(t1 = ticks, t2 = int(tickSeconds));
-            tickString = "[M" + str(self.mode) + "] " + tickString;            
+            tickHeader = "[M" + str(self.mode) + "]  ";
+            tickHeader += "[LED: " + (str(self.lights.states[0]) + 
+                                      str(self.lights.states[1]) +
+                                      str(self.lights.states[2])) + "]  ";
+            tickHeader += "[Button: " + (str(int(self.buttons.durations[0] * self.TICK_RATE)) + "|" +
+                                         str(int(self.buttons.durations[1] * self.TICK_RATE)) +
+                                         "]  ");
+            tickString = tickHeader + tickString;
             
             # check the CPU temperature (terminate if needed)
             if (tickOnSecond):
                 cpuTemp = self.getCPUTemp();
                 terminate = cpuTemp > 80.0;
                 # add to the tick string
-                tickString += "  (CPU Temp: " + str(cpuTemp) + ")";
+                tickString += "  [CPU Temp: " + str(cpuTemp) + "]";
                 # if the temperature exceeds the threshold, stop the program
                 terminate = cpuTemp > 80;
                 if (terminate):
-                    tickString += " (Too hot! Shutting down...)";
+                    self.filer.log("CPU running too hot! Shutting down...");
                     terminateCode = 0;
             
             # perform any mode actions needed
             tickString += self.update(ticks, tickSeconds);
             
-            # check for button presses
-            btn = -1;#DashInput.checkButtons();
-            if (btn == 0):
-                tickString += "  (Power button was pressed)";
-            elif (btn == 1):
-                tickString += "  (Image Capture button was pressed)";
-            elif (btn == 2):
-                tickString += "  (Active Record button was pressed)";
-            elif (btn == 3):
-                tickString += "  (Sentry Mode button was pressed)";
+            # check for power button press
+            if (self.buttons.isPowerPressed()):
+                terminate = True;
+                terminateCode = 1;
+                
+            # check for capture button press (TAKE PICTURE)
+            if (self.buttons.durations[1] * self.TICK_RATE < 2.0 and
+                self.buttons.durations[1] * self.TICK_RATE > 0.0 and
+                not self.buttons.isCapturePressed()):
+                self.filer.log("DEBUG: TAKING PICTURE");
+                # flash LED
+                self.lights.flashLED([1], 2);
+            # check for capture button hold (ACTIVE RECORD)
+            elif (self.buttons.isCapturePressed() and
+                self.buttons.durations[1] * self.TICK_RATE >= 2.0):
+                self.filer.log("DEBUG: ACTIVE RECORD ENABLED");
+                # determine what to do depending on the curent mode
+                if (self.mode == 0):
+                    self.filer.log("DEBUG: ACTIVE RECORD ENABLED");
+                    # TODO: mode switch
+                    self.mode = 1; # TODO: put in function
+                    # flash power LED once to indicate first mode
+                    self.lights.flashLED([0], 1);
+                elif (self.mode == 1):
+                    self.filer.log("DEBUG: ACTIVE RECORD DISABLED");
+                    # TODO: mode switch
+                    self.mode = 0; # TODO: put in function
+                    # flash power LED twice to indicate second mode
+                    self.lights.flashLED([0], 2);
+            
             
             # update the camera's overlay text
             if (self.camera.currVideo != None):                
@@ -120,12 +152,13 @@ class Controller:
                 self.camera.currVideo.duration += self.TICK_RATE;
             
             # sleep for one tick rate
-            self.camera.picam.wait_recording(self.TICK_RATE);            
-            # increment ticks            
-            ticks += 1;
-            tickSeconds += self.TICK_RATE;            
+            self.camera.picam.wait_recording(self.TICK_RATE);
             # log the tick string
-            self.filer.log(tickString + "\n");
+            if (tickSeconds % tickPrintRate == 0):
+                self.filer.log(tickString + "\n");
+            # increment ticks
+            ticks += 1;
+            tickSeconds += self.TICK_RATE;
             
             # check for flash-drive being plugged in
             driveJustIn = self.dumper.driveExists() and not driveInLastTick;
@@ -137,6 +170,8 @@ class Controller:
         
         # check terminate code: shutdown if needed
         if (terminateCode == 0 or terminateCode == 1):
+            self.filer.log("Shutting down with terminate code "
+                         + str(terminateCode) + "...");
             self.shutdownPi();
     
     
@@ -161,7 +196,7 @@ class Controller:
                 # add to the tick string
                 stringAddon += "  (Starting next passive video)";
                 # flash LED
-                self.lights.flashLED(1, 3);
+                self.lights.flashLED([1], 4);
                 
         
         # ACTIVE RECORD
@@ -211,7 +246,7 @@ class Controller:
         # call destructor
         self.__del__();
         # shutdown the pi
-        os.system("shutdown -h now");
+        os.system("sudo shutdown -t 1");
 
 
 # running the program

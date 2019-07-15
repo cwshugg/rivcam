@@ -65,7 +65,19 @@ class LightManager:
     # Given the index of the LED to flash, and the number of flashes to
     # perform, this flashes the LED, using time.sleep() to separate
     # the LED toggles
-    def flashLED(self, index, flashes):
-        for i in range(0, (flashes * 2) - 1):
+    def flashLED(self, indexes, flashes):
+        # save the states of the LEDs before flashing
+        oldStates = self.states;
+
+        for i in range(0, (flashes * 2)):
             time.sleep(0.075);
-            self.setLED(index, not self.getLED(index));
+            # activate all indexes
+            for j in range(0, len(indexes)):
+                self.setLED(indexes[j], not self.getLED(indexes[j]));
+
+        # turn the LEDs back to their old states
+        for i in range(0, len(indexes)):
+            self.setLED(indexes[i], oldStates[indexes[i]] == GPIO.HIGH);
+
+
+

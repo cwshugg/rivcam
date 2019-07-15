@@ -80,25 +80,10 @@ class DashCam:
         
         # determine what to display depending on the second (it's the
         # current date/time by default)
-        annotation = currentTime.strftime("%Y-%m-%d, %H:%M:%S");        
-        if (self.currVideo.duration % 3 == 0):
-            annotation = "Mod 3";
+        annotation = currentTime.strftime("%Y-%m-%d, %H:%M:%S");
         
         # update the overlay text
         self.picam.annotate_text = str(annotation);
 
 
 
-# debugging
-# from time import sleep;
-# c = DashCam();
-# print("Picture name: " + c.makeFileName(False));
-# print("Video name:   " + c.makeFileName(True));
-# # video capturing
-# print("Recording...");
-# c.startVideo("dashcamVideo1", "/home/pi/coding/python/dash/test_data/");
-# c.picam.wait_recording(12);
-# vid = c.stopVideo();
-# # image capturing
-# pic = c.takePicture("dashcamPicture1", "/home/pi/coding/python/dash/test_data/");
-# pic = c.takePicture(DashCam.makeFileName(False), "/home/pi/coding/python/dash/test_data/");
