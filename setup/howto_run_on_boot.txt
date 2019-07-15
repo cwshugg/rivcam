@@ -1,0 +1,17 @@
+To run the dash cam (or any python script) on boot, two things need to be done:
+    1)  Adjust bootup settings to auto login
+    2)  Add a call to the python script to your .bashrc
+
+Follow these steps to accomplish this:
+    1)  a)  In the terminal, type "sudo raspi-config". The Raspberry Pi config will pop up.
+        b)  Navigate to Boot Settings > Desktop/CLI
+        c)  Select "Console Autologin"
+        d)  Exit raspi-config. Rebooting might be a good idea too
+
+    2)  a)  Navigate to the default home directory ("/home/pi")
+        b)  Find some way to edit the .bashrc file (I used "sudo vim ./.bashrc")
+        c)  Add the call to the python script in the .bashrc file (something like this:)
+                "echo Running Dash Cam..."
+                "sudo python /home/pi/.../dashcam_run.py" (or whatever the runner .py file is called)
+        d)  Save and close the .bashrc file, then reboot to test
+    
