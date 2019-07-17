@@ -79,6 +79,7 @@ class Controller:
         #   -1  =  not terminated
         #    0  =  CPU is too hot
         #    1  =  power button was pressed
+        #    2  =  debug terminate (exit program but keep pi powered on)
         terminateCode = -1;
         
         # --------------- main loop --------------- #
@@ -114,16 +115,19 @@ class Controller:
             
             # perform any mode actions needed
             tickString += self.update(ticks, tickSeconds);
-            
-            # check for power button press
-            if (self.buttons.isPowerPressed()):
+            # check for both buttons being pressed
+            if (self.buttons.isPowerPressed() and self.buttons.isCapturePressed()):
+                # terminate but don't shut down
                 terminate = True;
-                terminateCode = 1;
-                
+                terminateCode = 2;
+            # check for power button press
+            elif (self.buttons.isPowerPressed()):
+                terminate = True;
+                terminateCode = 1;            
             # check for capture button press (TAKE PICTURE)
-            if (self.buttons.durations[1] * self.TICK_RATE < 2.0 and
-                self.buttons.durations[1] * self.TICK_RATE > 0.0 and
-                not self.buttons.isCapturePressed()):
+            elif (self.buttons.durations[1] * self.TICK_RATE < 2.0 and
+                  self.buttons.durations[1] * self.TICK_RATE > 0.0 and
+                  not self.buttons.isCapturePressed()):
                 self.filer.log("DEBUG: TAKING PICTURE");
                 # flash LED
                 self.lights.flashLED([1], 2);
@@ -136,15 +140,14 @@ class Controller:
                     self.filer.log("DEBUG: ACTIVE RECORD ENABLED");
                     # TODO: mode switch
                     self.mode = 1; # TODO: put in function
-                    # flash power LED once to indicate first mode
-                    self.lights.flashLED([0], 1);
+                    # flash power LED once to indicate going to second mode
+                    self.lights.flashLED([0], 2);
                 elif (self.mode == 1):
                     self.filer.log("DEBUG: ACTIVE RECORD DISABLED");
                     # TODO: mode switch
                     self.mode = 0; # TODO: put in function
-                    # flash power LED twice to indicate second mode
-                    self.lights.flashLED([0], 2);
-            
+                    # flash power LED twice to indicate going to first mode
+                    self.lights.flashLED([0], 1);
             
             # update the camera's overlay text
             if (self.camera.currVideo != None):                
@@ -167,12 +170,17 @@ class Controller:
             # update variable used for current-tick drive-in detection
             driveInLastTick = self.dumper.driveExists();
         # ----------------------------------------- #
-        
+
+        self.filer.log("Terminate Code: " + str(terminateCode) + "\n"); 
         # check terminate code: shutdown if needed
         if (terminateCode == 0 or terminateCode == 1):
-            self.filer.log("Shutting down with terminate code "
-                         + str(terminateCode) + "...");
+            self.filer.log("Shutting down...\n");
             self.shutdownPi();
+        
+        if (terminateCode == 2):
+            # flash LED to show debug terminate
+            self.lights.flashLED([0, 1], 5);
+            self.filer.log("Terminating programing, but keeping powered on...\n");
     
     
     # ------------------------ Mode Updates ------------------------ #
@@ -188,7 +196,7 @@ class Controller:
         if (self.mode == 0):
             # if the tick is on a second, toggle the "rolling" LED
             if (tickOnSecond):
-                self.lights.setLED(1, not self.lights.getLED(1));
+                self.lights.setLED([1], not self.lights.getLED(1));
             
             # if it's time to save the video, split the recording
             if (tickSeconds % self.PASSIVE_LEN == 0 and ticks > 0):
@@ -201,9 +209,9 @@ class Controller:
         
         # ACTIVE RECORD
         if (self.mode == 1):
-            # toggle the RED led to be solid red (only do this once)
-            if (not self.lights.getLED(1)):
-                self.lights.setLED(1, True);
+            # flash the red LED twice as fast
+            if (tickSeconds % 0.5 == 0):
+                self.lights.setLED([1], not self.lights.getLED(1));
         
         # return the string to be added to the tickString
         return stringAddon;
@@ -221,8 +229,9 @@ class Controller:
     # Deletes the oldest passive recording and begins a new one (or splits one
     # that's already running)
     def passiveRecording(self, isNew):
-        # delete the oldest passive recording
-        self.filer.deleteOldestPassive();
+        # delete the oldest passive recording (if it's not new)
+        if (not isNew):
+            self.filer.deleteOldestPassive();
         
         # depending on the given input, either START a new video, or split it
         if (isNew):
@@ -243,10 +252,18 @@ class Controller:
     
     # Ends the process, gives up the camera, and shuts down the pi
     def shutdownPi(self):
-        # call destructor
+        # flash LEDs
+        self.lights.setLED([0, 1, 2], False);
+        for i in range(0, 3):
+            self.lights.flashLED([i], 1);
+        self.lights.flashLED([0, 1, 2], 1);
+        
+        # call destructors
+        self.lights.__del__();
+        self.buttons.__del__();
         self.__del__();
         # shutdown the pi
-        os.system("sudo shutdown -t 1");
+        os.system("sudo shutdown -h now");
 
 
 # running the program

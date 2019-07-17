@@ -37,7 +37,7 @@ class Filer:
         self.displayLog = True;
         
         # create constants        
-        self.PASSIVE_LIM = 6;
+        self.PASSIVE_LIM = 18;
         self.LOG_LIM = 512;
         
         # check all directories
