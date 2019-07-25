@@ -70,7 +70,8 @@ class Filer:
     @staticmethod
     def makeFileName(fileType):
         now = datetime.datetime.now();
-        name = str(now);        
+        name = str(now);
+        name = name[:(str.find(name, ".") + 2)];
         # replace any spaces with underscores, and periods/colons with dashes
         name = name.replace(" ", "_");
         name = name.replace(":", "-");

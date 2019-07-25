@@ -128,9 +128,10 @@ class Controller:
             elif (self.buttons.durations[1] * self.TICK_RATE < 2.0 and
                   self.buttons.durations[1] * self.TICK_RATE > 0.0 and
                   not self.buttons.isCapturePressed()):
-                self.filer.log("DEBUG: TAKING PICTURE");
-                # flash LED
+                self.filer.log("Capturing image..."); 
+                # flash LED and take picture
                 self.lights.flashLED([1], 2);
+                self.camera.takePicture(Filer.makeFileName(1), self.filer.imagePath);
             # check for capture button hold (ACTIVE RECORD)
             elif (self.buttons.isCapturePressed() and
                 self.buttons.durations[1] * self.TICK_RATE >= 2.0):
