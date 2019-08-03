@@ -7,6 +7,7 @@ from filer import Filer;
 from dumper import Dumper;
 from lights import LightManager;
 from buttons import ButtonManager;
+from shutdown import shutdown_pi;
 
 # The main runner class for the program. Handles Camera interaction, file
 # saving/deletion, and other input/output
@@ -36,8 +37,9 @@ class Controller:
         self.filer = Filer();
         # create a file dumper
         self.dumper = Dumper("DASHCAM");
-        # create a light manager
+        # create a light manager and turn on the power LED
         self.lights = LightManager();
+        self.lights.setLED([0], True);
         # create a button manager
         self.buttons = ButtonManager();
         
@@ -93,12 +95,11 @@ class Controller:
             tickString = "Tick: {t1:9.2f}  |  Running Time: {t2:9.2f}";
             tickString = tickString.format(t1 = ticks, t2 = int(tickSeconds));
             tickHeader = "[M" + str(self.mode) + "]  ";
-            tickHeader += "[LED: " + (str(self.lights.states[0]) + 
+            tickHeader += "[LED: " + (str(self.lights.states[0]) +
                                       str(self.lights.states[1]) +
                                       str(self.lights.states[2])) + "]  ";
             tickHeader += "[Button: " + (str(int(self.buttons.durations[0] * self.TICK_RATE)) + "|" +
-                                         str(int(self.buttons.durations[1] * self.TICK_RATE)) +
-                                         "]  ");
+                                         str(int(self.buttons.durations[1] * self.TICK_RATE)) + "]  ");
             tickString = tickHeader + tickString;
             
             # check the CPU temperature (terminate if needed)
@@ -116,14 +117,16 @@ class Controller:
             # perform any mode actions needed
             tickString += self.update(ticks, tickSeconds);
             # check for both buttons being pressed
-            if (self.buttons.isPowerPressed() and self.buttons.isCapturePressed()):
+            if (self.buttons.isPowerPressed() and self.buttons.durations[0] * self.TICK_RATE >= 2.0
+            and self.buttons.isCapturePressed() and self.buttons.durations[1] * self.TICK_RATE >= 2.0):
                 # terminate but don't shut down
                 terminate = True;
-                terminateCode = 2;
+                terminateCode = 1;
             # check for power button press
-            elif (self.buttons.isPowerPressed()):
+            elif (self.buttons.isPowerPressed() and self.buttons.durations[0] * self.TICK_RATE >= 2.0 and
+              not self.buttons.isCapturePressed()):
                 terminate = True;
-                terminateCode = 1;            
+                terminateCode = 2;
             # check for capture button press (TAKE PICTURE)
             elif (self.buttons.durations[1] * self.TICK_RATE < 2.0 and
                   self.buttons.durations[1] * self.TICK_RATE > 0.0 and
@@ -136,6 +139,7 @@ class Controller:
             elif (self.buttons.isCapturePressed() and
                 self.buttons.durations[1] * self.TICK_RATE >= 2.0):
                 self.filer.log("DEBUG: ACTIVE RECORD ENABLED");
+
                 # determine what to do depending on the curent mode
                 if (self.mode == 0):
                     self.filer.log("DEBUG: ACTIVE RECORD ENABLED");
@@ -176,12 +180,13 @@ class Controller:
         # check terminate code: shutdown if needed
         if (terminateCode == 0 or terminateCode == 1):
             self.filer.log("Shutting down...\n");
-            self.shutdownPi();
+            shutdown_pi(self.lights, [self.buttons, self]);
         
         if (terminateCode == 2):
             # flash LED to show debug terminate
+            self.lights.setLED([0, 1], False);
             self.lights.flashLED([0, 1], 5);
-            self.filer.log("Terminating programing, but keeping powered on...\n");
+            self.filer.log("Terminating dash cam, but keeping Pi powered on...\n");
     
     
     # ------------------------ Mode Updates ------------------------ #
@@ -249,24 +254,5 @@ class Controller:
         # run the temp check in the command line and parse the output
         tempOutput = os.popen("vcgencmd measure_temp | egrep -o '[0-9]*\.[0-9]*'").readlines();
         return float(tempOutput[0].replace("\n", ""));
-    
-    
-    # Ends the process, gives up the camera, and shuts down the pi
-    def shutdownPi(self):
-        # flash LEDs
-        self.lights.setLED([0, 1, 2], False);
-        for i in range(0, 3):
-            self.lights.flashLED([i], 1);
-        self.lights.flashLED([0, 1, 2], 1);
-        
-        # call destructors
-        self.lights.__del__();
-        self.buttons.__del__();
-        self.__del__();
-        # shutdown the pi
-        os.system("sudo shutdown -h now");
 
 
-# running the program
-cont = Controller();
-cont.main();

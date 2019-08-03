@@ -19,7 +19,7 @@ class LightManager:
     def __init__(self):
         # set up pin numbers and initial states
         self.pins = [18, 24, 27];
-        self.states = [GPIO.HIGH, GPIO.LOW, GPIO.LOW];
+        self.states = [GPIO.LOW, GPIO.LOW, GPIO.LOW];
         
         # set up GPIO layout/settings
         GPIO.setmode(GPIO.BCM);

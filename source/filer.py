@@ -1,5 +1,6 @@
 import os;
 import datetime;
+from lights import LightManager;
 
 # A class responsible for managing the files of the dash cam
 class Filer:
@@ -67,6 +68,7 @@ class Filer:
     #     0    A video file name
     #     1    An image file name
     #     2    A log file name
+    #     3    A set-up log file name (used by the Configurer)
     @staticmethod
     def makeFileName(fileType):
         now = datetime.datetime.now();
@@ -84,6 +86,8 @@ class Filer:
             name = "img_" + name;
         elif (fileType == 2):
             name = "log_" + str(now.year) + "-" + str(now.month) + "-" + str(now.day);
+        elif (fileType == 3):
+            name = "config_" + str(now.year) + "-" + str(now.month) + "-" + str(now.day);
         
         # return the name of the file
         return name;
@@ -115,6 +119,57 @@ class Filer:
             self.log("Removing Oldest Passive Recording: " + files[i] + "\n");
     
 
+    # -------------------- Compression/Conversion Functions ----------------- #
+    # Helper function that creates a .zip file containing all the current .h264,
+    # .mp4, .png, and log .txt files into a zip file at the given path. A light
+    # manager is passed in to have indicator lights display packaging progress
+    def packageOutput(self, zipPath, lights):
+        # hold the blue LED to show things are processing
+        lights.setLED([0, 1, 2], False);
+        lights.setLED([2], True);
+        
+        # remove the old .zip, if one exists
+        os.system("rm " + zipPath);
+        # use system commands to package all files into a .zip file
+        os.system("zip " + zipPath + " " + self.mediaPath + "*/* " + self.logPath + "*");
+
+        # flash the blue and red LEDs to show the zip file was created
+        lights.flashLED([1, 2], 3);
+        lights.setLED([1, 2], False);
+
+
+    # Function that converts all .h264 videos to .mp4 files, then deletes the
+    # .h264 files. Places the .mp4's in the same location as the .h264's
+    def convertVideos(self, lights):
+        # check to make sure 'gpac' is installed (this has MP4Box)
+        status = os.system("dpkg --get-selections | grep gpac");
+        if (status != 0):
+            os.system("sudo apt-get install gpac");
+
+        # turn the blue light on to indicate the pi is busy converting
+        lights.setLED([2], True);
+
+        directories = [self.passivePath, self.activePath];
+        # iterate through each of the two video directories
+        for i in range(0, len(directories)):
+            # get a list of the files in the directory
+            files = os.listdir(directories[i]);
+
+            # iterate through each file in the directory
+            for j in range(0, len(files)):
+                # if the file is a .h264 file, convert it to .mp4
+                if (".h264" in files[j]):
+                    os.system("MP4Box -add " + directories[i] + files[j] + " " +
+                              directories[i] + files[j].replace(".h264", ".mp4"));
+                    # flash the blue LED once to indicate a video was processed
+                    lights.flashLED([2], 1);
+
+        # flash the blue and red LEDs to show the convertions are complete
+        lights.setLED([1, 2], False);
+        lights.flashLED([1, 2], 3);
+
+    
+    
     # -------------------------- Logging Functions -------------------------- #
     # Takes the given string and "logs" it. Usually, this means appending it to
     # the end of the filer's logString. If the "forceWrite" parameter is True,
@@ -125,11 +180,16 @@ class Filer:
         # if display is true, print to console
         if (self.displayLog):
             print(text.replace("\n", ""));
+
+        # determine what kind of log file this is
+        logType = 2;
+        if ("config" in self.logString.lower()):
+            logType = 3;
         
         # if the log string has exceeded its length, write it to the log file
         if (len(self.logString) >= self.LOG_LIM or forceWrite):
             # make a file name and open it for writing
-            fname = Filer.makeFileName(2);
+            fname = Filer.makeFileName(logType);
             f = open(self.logPath + fname + ".txt", "a+");
             
             # write the text and close the file
@@ -138,9 +198,5 @@ class Filer:
             
             # reset the log string
             self.logString = "";
-
-
-
-
 
 
