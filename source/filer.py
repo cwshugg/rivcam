@@ -27,6 +27,7 @@ class Filer:
     def __init__(self):
         # create file paths
         path = "/home/pi/coding/python/dash/";
+        self.path = path;
         self.mediaPath = path + "media/";
         self.passivePath = self.mediaPath + "passive/";
         self.activePath = self.mediaPath + "active/";
@@ -123,15 +124,15 @@ class Filer:
     # Helper function that creates a .zip file containing all the current .h264,
     # .mp4, .png, and log .txt files into a zip file at the given path. A light
     # manager is passed in to have indicator lights display packaging progress
-    def packageOutput(self, zipPath, lights):
+    def packageOutput(self, zipName, lights):
         # hold the blue LED to show things are processing
         lights.setLED([0, 1, 2], False);
         lights.setLED([2], True);
         
         # remove the old .zip, if one exists
-        os.system("rm " + zipPath);
+        os.system("rm " + zipName);
         # use system commands to package all files into a .zip file
-        os.system("zip " + zipPath + " " + self.mediaPath + "*/* " + self.logPath + "*");
+        os.system("zip " + self.path + zipName + " " + self.mediaPath + "*/* " + self.logPath + "*");
 
         # flash the blue and red LEDs to show the zip file was created
         lights.flashLED([1, 2], 3);
@@ -163,6 +164,8 @@ class Filer:
                               directories[i] + files[j].replace(".h264", ".mp4"));
                     # flash the blue LED once to indicate a video was processed
                     lights.flashLED([2], 1);
+                    # remove the .h264 video
+                    os.system("sudo rm " + files[j]);
 
         # flash the blue and red LEDs to show the convertions are complete
         lights.setLED([1, 2], False);

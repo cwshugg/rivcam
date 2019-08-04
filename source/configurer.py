@@ -38,6 +38,11 @@ class Configurer:
         self.filer.log("---------- New Config Session: " + str(datetime.datetime.now())
                                + " ----------\n", True);
     
+    # Destructor
+    def __del__(self):
+        # remove all .pyc files from the source directory
+        os.system("sudo rm ./*.pyc");
+
     
     # Main function
     def main(self):
@@ -158,7 +163,7 @@ class Configurer:
             elif (self.buttons.isCapturePressed() and self.buttons.durations[1] * self.TICK_RATE < 1.0 and
                   self.buttons.durations[1] < ticks and not self.buttons.isPowerPressed()):
                 # package output
-                self.filer.packageOutput("../output.zip", self.lights);
+                self.filer.packageOutput("output.zip", self.lights);
             # check for yellow button (convert videos)
             elif (self.buttons.isPowerPressed() and self.buttons.durations[0] * self.TICK_RATE < 1.0 and
                   self.buttons.durations[0] < ticks and not self.buttons.isCapturePressed()):
