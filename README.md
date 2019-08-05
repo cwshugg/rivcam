@@ -13,4 +13,4 @@ The dash cam has (or will have) the following features:
 * LED Indicators: Multiple LEDs indicate the status of the camera's inner workings: one "running light" (when the camera is powered on), one "rolling light" (when the camera is recording, actively or passively), and one "auxiliary light" (an extra light for any features I may add in the future)
 * Session Logging: The camera logs every "tick" of its main loop, marking any updates, errors, or hardware changes.
 * CPU Temperature Detection: Since dash cams sit in cars all day long, I'm expecting the Raspberry Pi to get hot. If the CPU's temperature rises above some threshold, the Pi is shut down.
-* Flash-Drive file dumping (iffy): When the camera is running, and a flash drive with a specific name is plugged in, all the camera's logs and media are dumped onto the flash drive. (Why iffy? I'm having a hard time giving Raspbian write permissions to a newly-inserted flash drive)
+* Flash-Drive file dumping: Through a config menu, the output files (videos, images, logs) can be sent to a plugged-in flash drive.
