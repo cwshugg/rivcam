@@ -2,6 +2,7 @@ import os;
 import datetime;
 from time import sleep;
 from filer import Filer;
+from dumper import Dumper;
 from lights import LightManager;
 from buttons import ButtonManager;
 from controller import Controller;
@@ -16,6 +17,7 @@ class Configurer:
     #   filer       The Filer object used to write logs/package output
     #   lights      The LightManager used for toggling LEDs
     #   buttons     The ButtonManager used for user input
+    #   dumper      The Dumper object used to dump files to a flash drive
     
     # Configurer Constants:
     #   TICK_RATE   The time interval (in seconds) at which the configurer
@@ -25,10 +27,11 @@ class Configurer:
     
     # Constructor
     def __init__(self):
-        # create the filer, light manager, and button manager
+        # create the filer, light manager, button manager, and dumper
         self.filer = Filer();
         self.lights = LightManager();
         self.buttons = ButtonManager();
+        self.dumper = Dumper("dashdrive");
 
         # create constants
         self.TICK_RATE = 0.125;
@@ -38,12 +41,7 @@ class Configurer:
         self.filer.log("---------- New Config Session: " + str(datetime.datetime.now())
                                + " ----------\n", True);
     
-    # Destructor
-    def __del__(self):
-        # remove all .pyc files from the source directory
-        os.system("sudo rm ./*.pyc");
 
-    
     # Main function
     def main(self):
         # set up loop variables
@@ -153,22 +151,45 @@ class Configurer:
             tickString = "[Ticks: {t1:9.2f}]  [Running Time: {t2:9.2f}]";
             tickString = tickString.format(t1 = ticks, t2 = int(tickSeconds));
             tickString = "[config-output]  " + tickString;
-           
+            
+            # get button durations before updating them
+            captureDuration = self.buttons.durations[1];
+            powerDuration = self.buttons.durations[0];
+
             # check for red/yellow button hold (back to config)
-            if (self.buttons.isCapturePressed() and self.buttons.durations[1] * self.TICK_RATE >= 1.0
-            and self.buttons.isPowerPressed() and self.buttons.durations[0] * self.TICK_RATE >= 1.0):
+            if (self.buttons.isCapturePressed() and self.buttons.durations[1] * self.TICK_RATE >= 2.0
+            and self.buttons.isPowerPressed() and self.buttons.durations[0] * self.TICK_RATE >= 2.0):
                 tickString += "  (Capture/Power buttons were held)";
                 terminateCode = 0;
             # check for red button (package output)
-            elif (self.buttons.isCapturePressed() and self.buttons.durations[1] * self.TICK_RATE < 1.0 and
-                  self.buttons.durations[1] < ticks and not self.buttons.isPowerPressed()):
-                # package output
-                self.filer.packageOutput("output.zip", self.lights);
+            elif (not self.buttons.isCapturePressed() and not self.buttons.isPowerPressed() and
+                  captureDuration < ticks and captureDuration > 0.0):
+                # do different actions depending on the hold-length
+                if (captureDuration * self.TICK_RATE < 1.5):
+                    # package output
+                    self.filer.packageOutput("output.zip", self.lights);
+                else:
+                    # disable all lights and toggle the blue light to indicate "thinking"
+                    self.lights.setLED([0, 1, 2], False);
+                    # dump output to flash drive, if it's plugged in
+                    if (self.dumper.driveExists()):
+                        self.filer.log("Drive found. Dumping files...\n");
+                        self.lights.setLED([2], True);
+                        # dump files
+                        self.dumper.dumpToDrive(self.filer);
+                        # flash the blue/red lights to show success
+                        self.lights.setLED([1, 2], False);
+                        self.lights.flashLED([1, 2], 3);
+                    else:
+                        self.filer.log("Drive not found. Cannot dump files.\n");
+                        # flash the red light to show failure
+                        self.lights.flashLED([1], 3);                    
             # check for yellow button (convert videos)
             elif (self.buttons.isPowerPressed() and self.buttons.durations[0] * self.TICK_RATE < 1.0 and
                   self.buttons.durations[0] < ticks and not self.buttons.isCapturePressed()):
                 # convert videos to mp4
                 self.filer.convertVideos(self.lights);
+            
 
             # log tick string if the tick is on a second
             if (tickSeconds.is_integer()):

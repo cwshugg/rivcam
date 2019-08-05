@@ -4,7 +4,6 @@ import time;
 from time import sleep;
 from dashcam import DashCam;
 from filer import Filer;
-from dumper import Dumper;
 from lights import LightManager;
 from buttons import ButtonManager;
 from shutdown import shutdown_pi;
@@ -16,7 +15,6 @@ class Controller:
     # Controller properties:
     #   camera       The Camera object used to record videos/take pictures
     #   filer        The Filer object responsible for managing system files
-    #   dumper       The Dumper object used to dump files onto a flash drive
     #   lights       The LightManager object used for toggling LEDs
     #   buttons      The ButtonManager used to sense button presses
     #   mode         An integer representing what "mode" the dash cam is in.
@@ -35,8 +33,6 @@ class Controller:
         self.camera = DashCam();
         # create a Filer
         self.filer = Filer();
-        # create a file dumper
-        self.dumper = Dumper("DASHCAM");
         # create a light manager and turn on the power LED
         self.lights = LightManager();
         self.lights.setLED([0], True);
@@ -57,11 +53,7 @@ class Controller:
         
         
     # Destructor
-    def __del__(self):
-        # make one last flash-drive dump, if possible
-        if (self.dumper.driveExists()):
-            self.dumpFiles();
-        
+    def __del__(self):        
         # log that the session has ended
         self.filer.log("--------- Session Ended: " + str(datetime.datetime.now())
                        + " ---------\n\n", True);
@@ -71,9 +63,6 @@ class Controller:
     def main(self):        
         # start passively recording
         self.passiveRecording(1);
-        
-        # variables for keeping track of flash drive
-        driveInLastTick = False;
         
         # termination code: used to help determine why the main loop
         # was broken (could be the power button, could be too hot
@@ -167,13 +156,6 @@ class Controller:
             # increment ticks
             ticks += 1;
             tickSeconds += self.TICK_RATE;
-            
-            # check for flash-drive being plugged in
-            driveJustIn = self.dumper.driveExists() and not driveInLastTick;
-            if (driveJustIn):
-                self.dumpFiles();            
-            # update variable used for current-tick drive-in detection
-            driveInLastTick = self.dumper.driveExists();
         # ----------------------------------------- #
 
         self.filer.log("Terminate Code: " + str(terminateCode) + "\n"); 
@@ -224,14 +206,6 @@ class Controller:
     
     
     # -------------------- File Saving/Deleting -------------------- #
-    # Helper function that's called whenever a dump to a flash drive is made
-    # by the controller. Adds a note to the log and invokes the Dumper's
-    # "dumpToDrive" method
-    def dumpFiles(self):
-        self.filer.log("Drive: " + self.dumper.driveName + " inserted. Dumping...");
-        self.dumper.dumpToDrive(self.filer);
-    
-
     # Deletes the oldest passive recording and begins a new one (or splits one
     # that's already running)
     def passiveRecording(self, isNew):

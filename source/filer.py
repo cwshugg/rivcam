@@ -31,7 +31,7 @@ class Filer:
         self.mediaPath = path + "media/";
         self.passivePath = self.mediaPath + "passive/";
         self.activePath = self.mediaPath + "active/";
-        self.imagePath = self.mediaPath + "images/";      
+        self.imagePath = self.mediaPath + "images/";  
         self.logPath = path + "logs/";
         
         # set up log info
@@ -44,6 +44,14 @@ class Filer:
         
         # check all directories
         self.checkDirectories();
+
+
+    # Destructor
+    def __del__(self):
+        # remove all the .pyc files from the source path
+        sourcePath = self.path + "source/";
+        if (any(fname.endswith(".pyc") for fname in os.listdir(sourcePath))):
+            os.system("sudo rm " + sourcePath + "*.pyc");
 
 
     # -------------------------- Helper Functions --------------------------- #
