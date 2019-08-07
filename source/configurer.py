@@ -155,38 +155,53 @@ class Configurer:
             # get button durations before updating them
             captureDuration = self.buttons.durations[1];
             powerDuration = self.buttons.durations[0];
+            # call the button methods to update the button durations
+            self.buttons.isCapturePressed();
+            self.buttons.isPowerPressed();
 
-            # check for red/yellow button hold (back to config)
-            if (self.buttons.isCapturePressed() and self.buttons.durations[1] * self.TICK_RATE >= 2.0
-            and self.buttons.isPowerPressed() and self.buttons.durations[0] * self.TICK_RATE >= 2.0):
-                tickString += "  (Capture/Power buttons were held)";
-                terminateCode = 0;
-            # check for red button (package output)
-            elif (not self.buttons.isCapturePressed() and not self.buttons.isPowerPressed() and
-                  captureDuration < ticks and captureDuration > 0.0):
-                # do different actions depending on the hold-length
-                if (captureDuration * self.TICK_RATE < 1.5):
-                    # package output
-                    self.filer.packageOutput("output.zip", self.lights);
-                else:
-                    # disable all lights and toggle the blue light to indicate "thinking"
-                    self.lights.setLED([0, 1, 2], False);
-                    # dump output to flash drive, if it's plugged in
-                    if (self.dumper.driveExists()):
-                        self.filer.log("Drive found. Dumping files...\n");
-                        self.lights.setLED([2], True);
-                        # dump files
-                        self.dumper.dumpToDrive(self.filer);
-                        # flash the blue/red lights to show success
-                        self.lights.setLED([1, 2], False);
-                        self.lights.flashLED([1, 2], 3);
-                    else:
-                        self.filer.log("Drive not found. Cannot dump files.\n");
-                        # flash the red light to show failure
-                        self.lights.flashLED([1], 3);                    
+            # check for red AND yellow button duration
+            if (captureDuration > 0.0 and captureDuration < ticks and
+                powerDuration > 0.0 and powerDuration < ticks):
+                # if the buttons are released, go back
+                if (not self.buttons.isCapturePressed() and
+                    not self.buttons.isPowerPressed()):
+                    tickString += "  (Capture/Power buttons were held)";
+                    terminateCode = 0;
+            # check for red button duration
+            elif (captureDuration > 0.0 and captureDuration < ticks and
+                  powerDuration == 0.0):
+                # flash at 1.5 seconds (and still being held down) to indicate
+                # that files will be sent to the flash drive upon button release
+                if (captureDuration * self.TICK_RATE >= 1.5 and
+                    (captureDuration * self.TICK_RATE) - 1.5 <= self.TICK_RATE and
+                    self.buttons.isCapturePressed()):
+                    self.lights.setLED([1, 2], False);
+                    self.lights.flashLED([0], 1);
+                
+                # if the button is released...
+                if (not self.buttons.isCapturePressed()):
+                    # if released under 1.5 seconds, package output
+                    if (captureDuration * self.TICK_RATE < 1.5):
+                        self.filer.packageOutput("output.zip", self.lights);
+                    # otherwise, dump to flash drive
+                    elif (captureDuration * self.TICK_RATE >= 1.5):
+                        # disable all lights
+                        self.lights.setLED([0, 1, 2], False);
+                        # dump output to flash drive, if it's plugged in
+                        if (self.dumper.driveExists()):
+                            self.filer.log("Drive found. Dumping files...\n");
+                            self.lights.setLED([2], True);
+                            # dump files
+                            self.dumper.dumpToDrive(self.filer);
+                            # flash the blue/red lights to show success
+                            self.lights.flashLED([1, 2], 3);
+                        # otherwise, flash red light to show the drive wasn't found
+                        else:
+                            self.filer.log("Drive not found. Cannot dump files.\n");
+                            self.lights.flashLED([1], 3);
             # check for yellow button (convert videos)
-            elif (self.buttons.isPowerPressed() and self.buttons.durations[0] * self.TICK_RATE < 1.0 and
-                  self.buttons.durations[0] < ticks and not self.buttons.isCapturePressed()):
+            elif (powerDuration > 0.0 and powerDuration < ticks and
+                  captureDuration == 0.0):
                 # convert videos to mp4
                 self.filer.convertVideos(self.lights);
             
