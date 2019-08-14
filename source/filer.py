@@ -173,7 +173,7 @@ class Filer:
                     # flash the blue LED once to indicate a video was processed
                     lights.flashLED([2], 1);
                     # remove the .h264 video
-                    os.system("sudo rm " + files[j]);
+                    os.system("sudo rm " + directories[i] + files[j]);
 
         # flash the blue and red LEDs to show the convertions are complete
         lights.setLED([1, 2], False);

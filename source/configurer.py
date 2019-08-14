@@ -182,6 +182,9 @@ class Configurer:
                 if (not self.buttons.isCapturePressed()):
                     # if released under 1.5 seconds, package output
                     if (captureDuration * self.TICK_RATE < 1.5):
+                        # disable all lights
+                        self.lights.setLED([0, 1, 2], False);
+                        # package the output
                         self.filer.packageOutput("output.zip", self.lights);
                     # otherwise, dump to flash drive
                     elif (captureDuration * self.TICK_RATE >= 1.5):
@@ -202,8 +205,11 @@ class Configurer:
             # check for yellow button (convert videos)
             elif (powerDuration > 0.0 and powerDuration < ticks and
                   captureDuration == 0.0):
-                # convert videos to mp4
-                self.filer.convertVideos(self.lights);
+                # if the button is released
+                if (not self.buttons.isPowerPressed()):
+                    self.lights.setLED([0, 1, 2], False);
+                    # convert videos to mp4
+                    self.filer.convertVideos(self.lights);
             
 
             # log tick string if the tick is on a second

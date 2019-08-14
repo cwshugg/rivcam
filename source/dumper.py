@@ -20,7 +20,8 @@ class Dumper:
         self.setDriveName(name);
         
         # set up directories to dump
-        homePath = os.getcwd().replace("/source", "") + "/";
+        #homePath = os.getcwd().replace("/source", "") + "/";
+        homePath = "/home/pi/coding/python/dash/";
         self.dumpDirectories = [homePath + "logs", homePath + "media"];
 
 

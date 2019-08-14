@@ -17,10 +17,6 @@ class Controller:
     #   filer        The Filer object responsible for managing system files
     #   lights       The LightManager object used for toggling LEDs
     #   buttons      The ButtonManager used to sense button presses
-    #   mode         An integer representing what "mode" the dash cam is in.
-    #                Used to determine what action to take in the main loop.
-    #                   0   Passive Record
-    #                   1   Active Record
     
     # Controller constants:
     #   TICK_RATE    The time interval (in seconds) at which the system ticks
@@ -43,9 +39,6 @@ class Controller:
         # create constants
         self.TICK_RATE = 0.125;
         self.PASSIVE_LEN = 10.0 * 60;
-        
-        # by default, the mode is 0: passive record
-        self.mode = 0;
 
         # log that a new session has begun
         self.filer.log("---------- New Session: " + str(datetime.datetime.now())
@@ -83,7 +76,7 @@ class Controller:
             # write a tick string to be printed to the log
             tickString = "Tick: {t1:9.2f}  |  Running Time: {t2:9.2f}";
             tickString = tickString.format(t1 = ticks, t2 = int(tickSeconds));
-            tickHeader = "[M" + str(self.mode) + "]  ";
+            tickHeader = "[dashcam]  ";
             tickHeader += "[LED: " + (str(self.lights.states[0]) +
                                       str(self.lights.states[1]) +
                                       str(self.lights.states[2])) + "]  ";
@@ -105,43 +98,34 @@ class Controller:
             
             # perform any mode actions needed
             tickString += self.update(ticks, tickSeconds);
+
+            # grab the initial button durations
+            powerDuration = self.buttons.durations[0];
+            captureDuration = self.buttons.durations[1];
+            # call the button-detection methods to update their durations
+            self.buttons.isPowerPressed();
+            self.buttons.isCapturePressed();
+
             # check for both buttons being pressed
-            if (self.buttons.isPowerPressed() and self.buttons.durations[0] * self.TICK_RATE >= 2.0
-            and self.buttons.isCapturePressed() and self.buttons.durations[1] * self.TICK_RATE >= 2.0):
-                # terminate but don't shut down
+            if (self.buttons.isPowerPressed() and powerDuration * self.TICK_RATE >= 2.0
+            and self.buttons.isCapturePressed() and captureDuration * self.TICK_RATE >= 2.0):
+                # terminate and shut down
                 terminate = True;
                 terminateCode = 1;
             # check for power button press
-            elif (self.buttons.isPowerPressed() and self.buttons.durations[0] * self.TICK_RATE >= 2.0 and
+            elif (self.buttons.isPowerPressed() and powerDuration * self.TICK_RATE >= 2.0 and
               not self.buttons.isCapturePressed()):
+                # terminate but don't shut down
                 terminate = True;
                 terminateCode = 2;
             # check for capture button press (TAKE PICTURE)
-            elif (self.buttons.durations[1] * self.TICK_RATE < 2.0 and
-                  self.buttons.durations[1] * self.TICK_RATE > 0.0 and
+            elif (captureDuration * self.TICK_RATE <= 2.0 and
+                  captureDuration * self.TICK_RATE > 0.0 and
                   not self.buttons.isCapturePressed()):
                 self.filer.log("Capturing image..."); 
                 # flash LED and take picture
                 self.lights.flashLED([1], 2);
                 self.camera.takePicture(Filer.makeFileName(1), self.filer.imagePath);
-            # check for capture button hold (ACTIVE RECORD)
-            elif (self.buttons.isCapturePressed() and
-                self.buttons.durations[1] * self.TICK_RATE >= 2.0):
-                self.filer.log("DEBUG: ACTIVE RECORD ENABLED");
-
-                # determine what to do depending on the curent mode
-                if (self.mode == 0):
-                    self.filer.log("DEBUG: ACTIVE RECORD ENABLED");
-                    # TODO: mode switch
-                    self.mode = 1; # TODO: put in function
-                    # flash power LED once to indicate going to second mode
-                    self.lights.flashLED([0], 2);
-                elif (self.mode == 1):
-                    self.filer.log("DEBUG: ACTIVE RECORD DISABLED");
-                    # TODO: mode switch
-                    self.mode = 0; # TODO: put in function
-                    # flash power LED twice to indicate going to first mode
-                    self.lights.flashLED([0], 1);
             
             # update the camera's overlay text
             if (self.camera.currVideo != None):                
@@ -180,26 +164,17 @@ class Controller:
         stringAddon = "";
         tickOnSecond = tickSeconds.is_integer();
         
-        # PASSIVE RECORD
-        if (self.mode == 0):
-            # if the tick is on a second, toggle the "rolling" LED
-            if (tickOnSecond):
-                self.lights.setLED([1], not self.lights.getLED(1));
+        # if the tick is on a second, toggle the "rolling" LED
+        if (tickOnSecond):
+            self.lights.setLED([1], not self.lights.getLED(1));
             
-            # if it's time to save the video, split the recording
-            if (tickSeconds % self.PASSIVE_LEN == 0 and ticks > 0):
-                self.passiveRecording(0);
-                # add to the tick string
-                stringAddon += "  (Starting next passive video)";
-                # flash LED
-                self.lights.flashLED([1], 4);
-                
-        
-        # ACTIVE RECORD
-        if (self.mode == 1):
-            # flash the red LED twice as fast
-            if (tickSeconds % 0.5 == 0):
-                self.lights.setLED([1], not self.lights.getLED(1));
+        # if it's time to save the video, split the recording
+        if (tickSeconds % self.PASSIVE_LEN == 0 and ticks > 0):
+            self.passiveRecording(0);
+            # add to the tick string
+            stringAddon += "  (Starting next passive video)";
+            # flash LED
+            self.lights.flashLED([1], 4);
         
         # return the string to be added to the tickString
         return stringAddon;
@@ -213,12 +188,14 @@ class Controller:
         if (not isNew):
             self.filer.deleteOldestPassive();
         
-        # depending on the given input, either START a new video, or split it
+        # depending on the given input, either START a new video, or STOP the
+        # current one and create a new one
         if (isNew):
             self.filer.log("Beginning passive recording...\n");
             self.camera.startVideo(Filer.makeFileName(0), self.filer.passivePath);
-        else:            
-            self.camera.splitVideo(Filer.makeFileName(0));
+        else:
+            self.camera.stopVideo();
+            self.camera.startVideo(Filer.makeFileName(0), self.filer.passivePath);
 
 
     # ---------------------- Helper Functions ---------------------- #
