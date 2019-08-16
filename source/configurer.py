@@ -205,11 +205,38 @@ class Configurer:
             # check for yellow button (convert videos)
             elif (powerDuration > 0.0 and powerDuration < ticks and
                   captureDuration == 0.0):
+                # flash at 1.5 seconds (if the button is still held) to indicate
+                # that files will be deleted upon button release
+                if (powerDuration * self.TICK_RATE >= 1.5 and
+                    (powerDuration * self.TICK_RATE) - 1.5 <= self.TICK_RATE and
+                    self.buttons.isPowerPressed()):
+                    self.lights.setLED([1, 2], False);
+                    self.lights.flashLED([0], 1);
+
                 # if the button is released
                 if (not self.buttons.isPowerPressed()):
-                    self.lights.setLED([0, 1, 2], False);
-                    # convert videos to mp4
-                    self.filer.convertVideos(self.lights);
+                    # if released under 1.5 seconds, convert the videos
+                    if (powerDuration * self.TICK_RATE < 1.5):
+                        self.lights.setLED([0, 1, 2], False);
+                        # convert videos to mp4
+                        self.filer.convertVideos(self.lights);
+                    # otherwise, delete the output
+                    elif (powerDuration * self.TICK_RATE >= 1.5):
+                        # set the red LED to ON while files are deleted
+                        self.lights.setLED([0, 1, 2], False);
+                        self.lights.setLED([1], True);
+                        # invoke system commands to wipe the media/log files
+                        os.system("sudo rm -rf ../logs");
+                        os.system("sudo rm -rf ../media");
+                        # since the current log file was destroyed, write to
+                        # a new one stating what happened
+                        self.filer.checkDirectories();
+                        self.filer.log("[config-output]  Wiping all output files...\n");
+                        
+                        # flash red/blue alternating to indicate the files were
+                        # permanently deleted
+                        self.lights.flashLED([1, 2], 4);
+                        self.lights.setLED([1, 2], False);
             
 
             # log tick string if the tick is on a second

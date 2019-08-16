@@ -6,10 +6,9 @@ from lights import LightManager;
 class Filer:
     
     # Filer properties:
+    #   path         The location of all the sub-directories for the dash cam
     #   mediaPath    The path to the directory where all media is kept
     #   passivePath  The path to the directory where passive recordings are
-    #                stored on the System
-    #   activePath   The path to the directory where active recordings are
     #                stored on the System
     #   imagePath    The path to the directory where images are stored    
     #   logPath      The path to the directory where log files are stored
@@ -30,7 +29,6 @@ class Filer:
         self.path = path;
         self.mediaPath = path + "media/";
         self.passivePath = self.mediaPath + "passive/";
-        self.activePath = self.mediaPath + "active/";
         self.imagePath = self.mediaPath + "images/";  
         self.logPath = path + "logs/";
         
@@ -39,7 +37,7 @@ class Filer:
         self.displayLog = True;
         
         # create constants        
-        self.PASSIVE_LIM = 18;
+        self.PASSIVE_LIM = 30;
         self.LOG_LIM = 512;
         
         # check all directories
@@ -63,8 +61,6 @@ class Filer:
             os.mkdir(self.mediaPath);
         if (not os.path.exists(self.passivePath)):
             os.mkdir(self.passivePath);
-        if (not os.path.exists(self.activePath)):
-            os.mkdir(self.activePath);
         if (not os.path.exists(self.imagePath)):
             os.mkdir(self.imagePath);
         if (not os.path.exists(self.logPath)):
