@@ -154,7 +154,7 @@ class Filer:
         # turn the blue light on to indicate the pi is busy converting
         lights.setLED([2], True);
 
-        directories = [self.passivePath, self.activePath];
+        directories = [self.passivePath];
         # iterate through each of the two video directories
         for i in range(0, len(directories)):
             # get a list of the files in the directory
