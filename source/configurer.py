@@ -43,7 +43,7 @@ class Configurer:
                         + " ----------\n", True);
         except:
             # assume the device's storage is full. Wipe it and try again
-            wipeFiles();
+            self.wipeFiles();
             self.__init__();
 
 
