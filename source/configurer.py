@@ -36,14 +36,14 @@ class Configurer:
         # create constants
         self.TICK_RATE = 0.125;
         self.WAIT_TIME = 5.0;
-
+        
         # try to log a new config session
         try:
            self.filer.log("---------- New Config Session: " + str(datetime.datetime.now())
                         + " ----------\n", True);
         except:
             # assume the device's storage is full. Wipe it and try again
-            self.wipeFiles();
+            self.wipeFiles(False);
             self.__init__();
 
 
@@ -246,23 +246,29 @@ class Configurer:
             self.lights.setLED([1, 2], False);
 
     
-    # Helper function for mainOutput() that wipes all media files from the device
-    def wipeFiles(self):
-        # set the red LED to ON while files are deleted
-        self.lights.setLED([0, 1, 2], False);
-        self.lights.setLED([1], True);
+    # Helper function for mainOutput() that wipes all media files from the device.
+    # Takes in an optional argument of whether or not to toggle the lights when
+    # wiping the files
+    def wipeFiles(self, toggleLights = True):
+        if (toggleLights):
+            # set the red LED to ON while files are deleted
+            self.lights.setLED([0, 1, 2], False);
+            self.lights.setLED([1], True);
+
         # invoke system commands to wipe the media/log files
         os.system("sudo rm -rf ../logs");
         os.system("sudo rm -rf ../media");
+        sleep(7);   # sleep for a short time before attempting anything else
         # since the current log file was destroyed, write to
         # a new one stating what happened
         self.filer.checkDirectories();
         self.filer.log("[config-output]  Wiping all output files...\n");
-                     
-        # flash red/blue alternating to indicate the files were
-        # permanently deleted
-        self.lights.flashLED([1, 2], 4);
-        self.lights.setLED([1, 2], False);
+        
+        if (toggleLights):
+            # flash red/blue alternating to indicate the files were
+            # permanently deleted
+            self.lights.flashLED([1, 2], 4);
+            self.lights.setLED([1, 2], False);
 
     
     # Connect Mode main function

@@ -36,8 +36,8 @@ class Filer:
         self.logString = "";
         self.displayLog = True;
         
-        # create constants        
-        self.PASSIVE_LIM = 30;
+        # create constants 
+        self.PASSIVE_LIM = 12;
         self.LOG_LIM = 512;
         
         # check all directories
@@ -102,7 +102,12 @@ class Filer:
     # Deletes the oldest passive recording from memory to make room for the next
     def deleteOldestPassive(self):
         # get the list of files in the passive directory
-        files = os.listdir(self.passivePath);        
+        files = os.listdir(self.passivePath);
+
+        # if there's currently only one file, we can assume this might be the
+        # video file currently being taken. Simply return from the function
+        if (len(files) <= 1):
+            return;
         
         # determine if one should be deleted yet
         if (len(files) >= self.PASSIVE_LIM and len(files) > 0):
@@ -120,9 +125,12 @@ class Filer:
                     minTime = t;        
             
             # remove the oldest file from the directory
-            os.remove(self.passivePath + files[remIndex]);
-            self.log("Removing Oldest Passive Recording: " + files[i] + "\n");
-    
+            self.log("Removing Oldest Passive Recording: " + files[remIndex] + "\n");
+            try:
+                os.remove(self.passivePath + files[remIndex]);
+            except OSError as e:
+                self.log("Failed to remove video: %s" % e.strerror)
+                
 
     # -------------------- Compression/Conversion Functions ----------------- #
     # Helper function that creates a .zip file containing all the current .h264,

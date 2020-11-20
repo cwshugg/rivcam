@@ -184,9 +184,8 @@ class Controller:
     # Deletes the oldest passive recording and begins a new one (or splits one
     # that's already running)
     def passiveRecording(self, isNew):
-        # delete the oldest passive recording (if it's not new)
-        if (not isNew):
-            self.filer.deleteOldestPassive();
+        # first, delete the oldest passive recording
+        self.filer.deleteOldestPassive();
         
         # depending on the given input, either START a new video, or STOP the
         # current one and create a new one
@@ -194,6 +193,7 @@ class Controller:
             self.filer.log("Beginning passive recording...\n");
             self.camera.startVideo(Filer.makeFileName(0), self.filer.passivePath);
         else:
+            self.filer.log("Splitting passive recording...\n");
             self.camera.stopVideo();
             self.camera.startVideo(Filer.makeFileName(0), self.filer.passivePath);
 
