@@ -14,3 +14,15 @@ The dash cam has the following features:
 * Session Logging: The camera logs every "tick" of its main loop, marking any updates, errors, or hardware changes.
 * CPU Temperature Detection: Since dash cams sit in cars all day long, I'm expecting the Raspberry Pi to get hot. If the CPU's temperature rises above some threshold, the Pi is shut down.
 * Flash-Drive file dumping: Through a config menu, the output files (videos, images, logs) can be sent to a plugged-in flash drive.
+
+# Samples
+Below are some sample images taken from my raspberry pi 3b+ running this code.
+
+![highway image 1](https://github.com/cwshugg/wrivcam/blob/master/images/sample_images/sample_image_highway1.jpg?raw=true)
+![snow image 1](https://github.com/cwshugg/wrivcam/blob/master/images/sample_images/sample_image_snow1.jpg?raw=true)
+![snow image 2](https://github.com/cwshugg/wrivcam/blob/master/images/sample_images/sample_image_snow2.jpg?raw=true)
+
+Links to sample videos recorded on the same machine can be found here:
+
+* Sample 1: https://youtu.be/1qI8dHIZC_s
+* Sample 2: https://youtu.be/cg1fkrqQ5Ho
